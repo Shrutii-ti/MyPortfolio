@@ -1,0 +1,45 @@
+.section-divider {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  line-height: 0;
+}
+
+.section-divider svg {
+  position: relative;
+  display: block;
+  width: calc(100% + 1.3px);
+  height: 80px;
+}
+
+.section-divider.flip {
+  transform: rotate(180deg);
+}
+
+/* Primary color (for sections with primary background) */
+.section-divider.primary svg {
+  fill: var(--bg-primary);
+}
+
+/* Secondary color (for sections with secondary background) */
+.section-divider.secondary svg {
+  fill: var(--bg-secondary);
+}
+
+/* Accent color */
+.section-divider.accent svg {
+  fill: var(--bg-accent);
+}
+
+/* Responsive heights */
+@media (max-width: 768px) {
+  .section-divider svg {
+    height: 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  .section-divider svg {
+    height: 40px;
+  }
+}
