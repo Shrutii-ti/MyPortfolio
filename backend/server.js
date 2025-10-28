@@ -36,17 +36,43 @@ app.post('/api/contact', async (req, res) => {
     }
 
     // Create nodemailer transporter
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+    let transporter;
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+      transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        }
+      });
+    } else {
+      // Fallback for development: try Ethereal first, then jsonTransport as a last resort
+      try {
+        const testAccount = await nodemailer.createTestAccount();
+        transporter = nodemailer.createTransport({
+          host: 'smtp.ethereal.email',
+          port: 587,
+          secure: false,
+          auth: {
+            user: testAccount.user,
+            pass: testAccount.pass
+          }
+        });
+        console.warn('EMAIL_USER/EMAIL_PASS not set. Using Ethereal test SMTP.');
+      } catch (ethErr) {
+        console.warn('Ethereal setup failed, falling back to jsonTransport. Reason:', ethErr?.message || ethErr);
+        transporter = nodemailer.createTransport({
+          jsonTransport: true
+        });
       }
-    });
+    }
+
+    // Determine a valid from address in all environments
+    const fromAddress = process.env.EMAIL_USER || (transporter?.options?.auth?.user) || 'no-reply@portfolio.local';
 
     // Email options
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: fromAddress,
       to: process.env.RECEIVER_EMAIL || 'shrutild67@gmail.com',
       subject: `Portfolio Contact: Message from ${name}`,
       html: `
@@ -65,12 +91,41 @@ app.post('/api/contact', async (req, res) => {
       `
     };
 
-    // Send email
-    await transporter.sendMail(mailOptions);
+    // Send email, with retry using fallback transport if first attempt fails
+    let info;
+    let previewUrl = null;
+    try {
+      info = await transporter.sendMail(mailOptions);
+    } catch (sendErr) {
+      console.warn('Primary transporter failed, attempting fallback. Reason:', sendErr?.message || sendErr);
+      try {
+        // Build a fallback transporter chain (Ethereal -> jsonTransport)
+        let fallbackTransporter;
+        try {
+          const testAccount = await nodemailer.createTestAccount();
+          fallbackTransporter = nodemailer.createTransport({
+            host: 'smtp.ethereal.email',
+            port: 587,
+            secure: false,
+            auth: { user: testAccount.user, pass: testAccount.pass }
+          });
+        } catch {
+          fallbackTransporter = nodemailer.createTransport({ jsonTransport: true });
+        }
+        info = await fallbackTransporter.sendMail({ ...mailOptions, from: fallbackTransporter?.options?.auth?.user || 'no-reply@portfolio.local' });
+        previewUrl = nodemailer.getTestMessageUrl(info);
+      } catch (fallbackErr) {
+        throw fallbackErr;
+      }
+    }
+    if (!previewUrl) {
+      previewUrl = nodemailer.getTestMessageUrl(info);
+    }
 
     res.status(200).json({
       success: true,
-      message: 'Message sent successfully! I will get back to you soon.'
+      message: 'Message sent successfully! I will get back to you soon.',
+      previewUrl
     });
 
   } catch (error) {

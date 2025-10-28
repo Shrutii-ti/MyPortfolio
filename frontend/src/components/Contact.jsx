@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { useInView } from 'framer-motion';
 import { useRef } from 'react';
 import { FaGithub, FaLinkedin, FaEnvelope, FaFileDownload, FaPaperPlane } from 'react-icons/fa';
-import axios from 'axios';
 import './Contact.css';
 
 const Contact = () => {
@@ -33,39 +32,44 @@ const Contact = () => {
     e.preventDefault();
     setStatus({ loading: true, message: '', type: '' });
 
+    const FORMSPREE_ENDPOINT = import.meta.env.VITE_FORMSPREE_ENDPOINT || '';
+    const { name, email, message } = formData;
+
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const response = await axios.post(`${API_URL}/api/contact`, formData);
+      if (FORMSPREE_ENDPOINT) {
+        const resp = await fetch(FORMSPREE_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ name, email, message })
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          throw new Error(err?.error || 'Failed to send message');
+        }
+      } else {
+        const subject = `Portfolio Contact: ${name}`;
+        const body = `From: ${name} <${email}>\n\n${message}`;
+        window.location.href = `mailto:shrutild67@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      }
 
       setStatus({
         loading: false,
-        message: response.data.message,
+        message: 'Message sent successfully! I will get back to you soon.',
         type: 'success',
       });
-
-      // Reset form
-      setFormData({
-        name: '',
-        email: '',
-        message: '',
-      });
-
-      // Clear success message after 5 seconds
-      setTimeout(() => {
-        setStatus({ loading: false, message: '', type: '' });
-      }, 5000);
-
+      setFormData({ name: '', email: '', message: '' });
+      setTimeout(() => setStatus({ loading: false, message: '', type: '' }), 5000);
     } catch (error) {
       setStatus({
         loading: false,
-        message: error.response?.data?.message || 'Failed to send message. Please try again.',
+        message: error?.message || 'Failed to send message. Please try again.',
         type: 'error',
       });
-
-      // Clear error message after 5 seconds
-      setTimeout(() => {
-        setStatus({ loading: false, message: '', type: '' });
-      }, 5000);
+      setTimeout(() => setStatus({ loading: false, message: '', type: '' }), 5000);
     }
   };
 

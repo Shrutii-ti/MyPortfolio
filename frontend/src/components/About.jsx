@@ -59,7 +59,6 @@ const About = () => {
               developments in web development.
             </p>
           </div>
-
           <div className="about-info">
             <div className="info-card">
               <div className="info-icon">
@@ -71,7 +70,6 @@ const About = () => {
                 <p className="info-sub">Jain University</p>
               </div>
             </div>
-
             <div className="info-card">
               <div className="info-icon">
                 <FaMapMarkerAlt />
